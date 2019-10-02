@@ -3,18 +3,6 @@ import numpy as np
 from collections import OrderedDict
 from scipy.spatial import distance as dist
 
-canny_low = 0
-canny_high = 0
-def cannylowcb(value):
-    global canny_low
-    canny_low = value
-def cannyhighcb(value):
-    global canny_high
-    canny_high = value
-slider_window = cv2.namedWindow("Sliders")
-cv2.createTrackbar("canny_low", "Sliders", 0, 255, cannylowcb)
-cv2.createTrackbar("canny_high", "Sliders", 0, 255, cannyhighcb)
-
 class ColorFrequencyParser:
     def __init__(self):
         # Maps frequencies to RGB colour values
@@ -64,22 +52,74 @@ class ColorFrequencyParser:
         if minDist[1] != None:
             return self.colorNames[minDist[1]]
         return 
+    # Return BGR color value of color corresponding to note
+    def getColor(self, note):
+        return np.array(list(reversed(cfparser.color_frequency_map.get(note))), dtype=float)/255
+
+    def showPalette(self):
+        increment = 0
+        for key in self.color_frequency_map:
+            newimg = np.zeros((100, 100, 3))
+            for i in range(newimg.shape[0]):
+                for j in range(newimg.shape[1]):
+                    newimg[i][j] = np.array(list(reversed(cfparser.color_frequency_map.get(key))), dtype=float)/255
+            print(key, newimg[0][0])
+            cv2.imshow(key, newimg)
+            cv2.moveWindow(key, increment, 100)
+            increment += 200
+
+
 
 filenames = ["solid_pink.png", "solid_grey.png", "solid_blue.png", "solid_brown.png"]
 cfparser = ColorFrequencyParser()
 
+# note to self - np.fill() vms
+newimg = np.zeros((100, 100, 3))
+for i in range(newimg.shape[0]):
+    for j in range(newimg.shape[1]):
+        #newimg[i][j] = [0, 0, 116]
+        newimg[i][j] = cfparser.getColor("f#")
+print("f#", newimg[0][0])
+cv2.imshow("f#", newimg)    
+cv2.moveWindow("f#", 100, 100)
+
+newimg2 = np.zeros((100, 100, 3))
+for i in range(newimg2.shape[0]):
+    for j in range(newimg2.shape[1]):
+        newimg2[i][j] = cfparser.getColor("g#")
+print("g#", newimg2[0][0])
+cv2.imshow("g#", newimg2)
+cv2.moveWindow("g#", 300, 100)
+cv2.waitKey(0)
+
+cfparser.showPalette()
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
 for f in filenames:
     image = cv2.imread("images/"+f)
+    print(image.shape)
     imgray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(imgray, 1, 255, 0)
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     labimage = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-    print(f, cfparser.getFrequency(labimage, contours[0]))
-# cv2.drawContours(image, contours, -1, (0, 255, 255), 2)
-# cv2.imshow("original", image)
-# cv2.imshow("lab", labimage)
-# print(len(contours))
-# cv2.imshow("Gray", gray)
-# cv2.imshow("Lab", lab)
-cv2.waitKey(0)
+    note = cfparser.getFrequency(labimage, contours[0])
+    print(f, note)
+
+    cv2.imshow("Original", image)
+
+    newimg = np.zeros((100, 100, 3))
+    for i in range(newimg.shape[0]):
+        for j in range(newimg.shape[1]):
+            newimg[i][j] = cfparser.getColor(note)
+    print(newimg[0][0])
+    cv2.imshow("Closest match", newimg)
+    cv2.moveWindow("Closest match", 0, 100)
+    cv2.waitKey(0)
+
+
+
+
+
+
 cv2.destroyAllWindows()

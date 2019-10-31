@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import copy
 
-image = cv2.imread("images/"+"tartu-maarja-small.png")
+image = cv2.imread("images/"+"tartu-maarja-small-orig.png")
 corners = []
 contours = [[]]
 n_clicks = 0 
@@ -37,10 +37,7 @@ while True:
     newimg = copy.deepcopy(image)
     drawCorners(newimg, corners)
     if len(contours[0]) > 0:
-        cv2.drawContours(newimg, np.array(contours), -1, (255, 0, 0), thickness=-1)
         rect = cv2.boundingRect(np.array(contours))
-        print(rect)
-        print(contours[0])
         cv2.rectangle(newimg, (rect[0], rect[1]),(rect[0] + rect[2], rect[1] + rect[3]), (0, 255, 0), thickness=2)
     cv2.imshow("image", newimg)
 
@@ -50,10 +47,14 @@ while True:
     elif key == ord('x') and len(contours[0]) > 0:
         rect = cv2.boundingRect(np.array(contours))
         cropped = image[rect[1]:rect[1] + rect[3] , rect[0]:rect[0] + rect[2], :]
-        # print(cropped)
         cv2.destroyAllWindows()
         cv2.imshow("image", cropped)
         cv2.waitKey(0)
         break
 
+# mean_color = tuple([int(i) for i in cv2.mean(cropped)[:3]])
+cropped = np.full(cropped.shape, cv2.mean(cropped)[:3])/255
+
+cv2.imshow("image", cropped)
+cv2.waitKey(0)
 cv2.destroyAllWindows()

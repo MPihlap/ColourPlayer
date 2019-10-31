@@ -2,59 +2,68 @@ import cv2
 import numpy as np
 import copy
 
-image = cv2.imread("images/"+"tartu-maarja-small-orig.png")
-corners = []
-contours = [[]]
-n_clicks = 0 
+class ContourPicker:
+    def __init__(self, image_source):
+        self.image = cv2.imread(image_source)
+        self.corners = []
+        self.contours = [[]]
+        self.contour_index = 0
+        self.images = []
+    def getBlurredImages(self):
+        return [np.full(img.shape, cv2.mean(img)[:3])/255 for img in self.images]
+    def getImages(self):
+        return self.images
+    def dist(self, p1, p2):
+        return ((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)**0.5
+    def showImages(self):
+        for i in self.images:
+            cv2.imshow("image", i)
+    def addOrRemovePoint(self, x, y):
+        for i, point in enumerate(self.corners):
+            if self.dist((x, y), point) < 10:
+                print("Removing point: ", point)
+                self.corners.pop(i)
+                return
+        self.corners.append((x, y))
+        self.contours[self.contour_index] = self.corners
+        return 
 
-def dist(p1, p2):
-    return ((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)**0.5
+    def mouseClickHandler(self, event, x, y, flags, param):
+        if event == cv2.EVENT_LBUTTONUP:
+            self.addOrRemovePoint(x, y)
 
-def addOrRemovePoint(x, y):
-    for i, point in enumerate(corners):
-        if dist((x, y), point) < 10:
-            print("Removing point: ", point)
-            corners.pop(i)
-            return
-    corners.append((x, y))
-    contours[0] = corners
-    return 
+    def drawCorners(self, image, corners):
+        for corner in corners:
+            cv2.circle(image, corner, 10, (255, 255, 255))
+            cv2.circle(image, corner, 8, (0, 0, 0))
 
-def mouseClickHandler(event, x, y, flags, param):
-    if event == cv2.EVENT_LBUTTONUP:
-        print("Click")
-        addOrRemovePoint(x, y)
+    def saveContours(self):
+        for i in range(len(self.contours)):
+            if self.contours[i] == []:
+                continue
+            rect = cv2.boundingRect(np.array(self.contours[i]))
+            cropped = self.image[rect[1]:rect[1] + rect[3] , rect[0]:rect[0] + rect[2], :]
+            self.images.append(cropped)
 
-def drawCorners(image, corners):
-    for corner in corners:
-        cv2.circle(image, corner, 10, (255, 255, 255))
-        cv2.circle(image, corner, 8, (0, 0, 0))
+    def run(self):
+        cv2.namedWindow("image")
+        cv2.setMouseCallback("image", self.mouseClickHandler)
+        cropped = None
+        while True:
+            newimg = copy.deepcopy(self.image)
+            self.drawCorners(newimg, self.corners)
+            if len(self.contours[self.contour_index]) > 0:
+                rect = cv2.boundingRect(np.array(self.contours[self.contour_index]))
+                cv2.rectangle(newimg, (rect[0], rect[1]),(rect[0] + rect[2], rect[1] + rect[3]), (0, 255, 0), thickness=2)
+            cv2.imshow("image", newimg)
 
-cv2.namedWindow("image")
-cv2.setMouseCallback("image", mouseClickHandler)
-cropped = None
-while True:
-    newimg = copy.deepcopy(image)
-    drawCorners(newimg, corners)
-    if len(contours[0]) > 0:
-        rect = cv2.boundingRect(np.array(contours))
-        cv2.rectangle(newimg, (rect[0], rect[1]),(rect[0] + rect[2], rect[1] + rect[3]), (0, 255, 0), thickness=2)
-    cv2.imshow("image", newimg)
-
-    key = cv2.waitKey(20) & 0xFF
-    if key == ord('q'):
-        break
-    elif key == ord('x') and len(contours[0]) > 0:
-        rect = cv2.boundingRect(np.array(contours))
-        cropped = image[rect[1]:rect[1] + rect[3] , rect[0]:rect[0] + rect[2], :]
-        cv2.destroyAllWindows()
-        cv2.imshow("image", cropped)
-        cv2.waitKey(0)
-        break
-
-# mean_color = tuple([int(i) for i in cv2.mean(cropped)[:3]])
-cropped = np.full(cropped.shape, cv2.mean(cropped)[:3])/255
-
-cv2.imshow("image", cropped)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+            key = cv2.waitKey(20) & 0xFF
+            if key == ord('q'):
+                return
+            elif key == ord('x') and len(self.contours[0]) > 0:
+                self.saveContours()
+                return 
+            elif key == ord('n'):
+                self.contour_index += 1
+                self.contours.append([])
+                self.corners = []
